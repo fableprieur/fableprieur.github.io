@@ -43,6 +43,8 @@ main.wrap{padding-top:44px;padding-bottom:64px}
 .roles li{margin:.25em 0}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:22px 24px}
 .card h2:first-child{margin-top:0}
+.card + .card{margin-top:28px}
+.two-col .card + .card{margin-top:0}
 .contact{position:sticky;top:24px;margin-top:8px;font-size:.93rem}
 .contact h2{font-size:1.2rem}
 .links{list-style:none;padding:0;margin:0}
