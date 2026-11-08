@@ -25,8 +25,8 @@ pre{background:var(--navy);color:#e8f1f3;padding:14px 18px;border-radius:8px;ove
 .header-inner{position:relative;display:flex;flex-direction:column;align-items:flex-start;padding-top:18px}
 .brand{color:#fff;text-decoration:none;display:flex;flex-direction:column;padding:10px 0}
 .brand:hover{color:#fff}
-.brand-name{font-family:var(--serif);font-size:1.35rem;font-weight:600}
-.brand-tag{font-size:.78rem;opacity:.75;letter-spacing:.02em}
+.brand-name{font-family:var(--serif);font-size:1.85rem;font-weight:600;line-height:1.2;letter-spacing:-.01em}
+.brand-tag{font-size:.95rem;opacity:.8;letter-spacing:.01em;margin-top:2px}
 .site-nav{display:flex;gap:2px;flex-wrap:wrap;margin:10px 0 0 -12px}
 .site-nav a{color:#d6e4ea;text-decoration:none;font-size:.92rem;padding:10px 12px 12px;border-bottom:3px solid transparent}
 .site-nav a:hover{color:#fff;border-bottom-color:rgba(255,255,255,.3)}
@@ -98,6 +98,8 @@ ol.numbered li::marker{color:var(--muted);font-size:.85em;font-variant-numeric:t
 .site-footer p{margin:.2em 0}
 
 @media (max-width:860px){
+  .brand-name{font-size:1.45rem}
+  .brand-tag{font-size:.82rem}
   .home-grid,.two-col,.theme{grid-template-columns:1fr}
   .contact{position:static}
   .theme figure{margin:0;max-width:320px}
