@@ -79,6 +79,8 @@ ol.numbered li::marker{color:var(--muted);font-size:.85em;font-variant-numeric:t
 .theme figure{margin:2.2em 0 0}
 .theme figure img{border-radius:8px;border:1px solid var(--line);background:#fff}
 .theme figcaption{font-size:.78rem;color:var(--muted);text-align:center;margin-top:4px}
+.axis-num + h2{margin-top:.25em}
+.axis-num{margin:2.2em 0 0;text-transform:uppercase;letter-spacing:.1em;font-size:.78rem;font-weight:700;color:var(--teal)}
 .callout{background:var(--teal-soft);padding:14px 18px;border-radius:8px}
 .timeline{list-style:none;padding:0}
 .timeline li{display:grid;grid-template-columns:110px 1fr;gap:16px;padding:12px 0;border-bottom:1px solid var(--line)}
