@@ -1,7 +1,7 @@
 :root{
   --ink:#1c2630; --muted:#5b6b78; --bg:#fbfaf7; --card:#fff; --line:#e3e0d8;
   --navy:#0f2a3d; --teal:#17707c; --teal-soft:#e4f1f2; --sand:#f3efe6;
-  --serif: "Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+  --serif: "Source Serif 4","Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
   --sans: system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
 }
 *{box-sizing:border-box}
@@ -109,3 +109,9 @@ ol.numbered li::marker{color:var(--muted);font-size:.85em;font-variant-numeric:t
   .timeline li{grid-template-columns:1fr;gap:2px}
 }
 @media print{.site-header,.pub-tools,.jump,.site-footer{display:none}}
+
+/* axis titles */
+.theme h2{font-size:1.9rem;line-height:1.2;letter-spacing:-.012em;font-weight:600;margin:.2em 0 .7em;text-wrap:balance}
+.axis-num{display:flex;align-items:center;gap:12px}
+.axis-num::after{content:"";flex:0 0 48px;height:2px;background:var(--teal);opacity:.6}
+@media (max-width:860px){.theme h2{font-size:1.5rem}}
