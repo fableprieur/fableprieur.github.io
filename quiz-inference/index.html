@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quiz Description et inférence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Plan : fiche de TD calme, une colonne ; chaque thème du cours a sa couleur de pastille */
+  --bg: #f3f5f7;
+  --surface: #ffffff;
+  --ink: #18222d;
+  --muted: #5b6876;
+  --line: #d9e0e7;
+  --accent: #1f5f8b;
+  --accent-soft: #e3eef6;
+  --good: #1e7a4c;
+  --good-soft: #e2f3ea;
+  --bad: #b2362b;
+  --bad-soft: #fbe7e4;
+  --t-est: #6a4bb3;
+  --t-ic: #1f5f8b;
+  --t-test: #a45a12;
+  --font-display: "Source Serif 4", Georgia, serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12171d; --surface: #1a2129; --ink: #e6ebf0; --muted: #9aa7b4; --line: #2c3641;
+    --accent: #6fb0e0; --accent-soft: #1c3142; --good: #5cc98f; --good-soft: #17322a;
+    --bad: #f08a7e; --bad-soft: #3a1f1d; --t-est: #b39cf0; --t-ic: #6fb0e0; --t-test: #e7a560;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12171d; --surface: #1a2129; --ink: #e6ebf0; --muted: #9aa7b4; --line: #2c3641;
+  --accent: #6fb0e0; --accent-soft: #1c3142; --good: #5cc98f; --good-soft: #17322a;
+  --bad: #f08a7e; --bad-soft: #3a1f1d; --t-est: #b39cf0; --t-ic: #6fb0e0; --t-test: #e7a560;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.55 var(--font-body); }
+.wrap { max-width: 760px; margin: 0 auto; padding: 28px 18px 60px; display: flex; flex-direction: column; gap: 18px; }
+header h1 { font: 700 1.75rem/1.2 var(--font-display); margin: 0 0 4px; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-btn { font: 500 .88rem var(--font-body); border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 6px 12px; border-radius: 999px; cursor: pointer; }
+.chip-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.chip-btn:focus-visible, .opt:focus-visible, .btn:focus-visible, .dot:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.status { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: .9rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.status strong { color: var(--ink); }
+.dots { display: flex; flex-wrap: wrap; gap: 6px; }
+.dot { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font: 500 .75rem var(--font-mono); cursor: pointer; padding: 0; }
+.dot.current { border-color: var(--accent); color: var(--accent); border-width: 2px; }
+.dot.ok { background: var(--good-soft); border-color: var(--good); color: var(--good); }
+.dot.ko { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 22px; display: flex; flex-direction: column; gap: 16px; }
+.qhead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.qnum { font: 500 .85rem var(--font-mono); color: var(--muted); }
+.tag { font: 600 .74rem var(--font-body); letter-spacing: .03em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; border: 1px solid currentColor; }
+.tag.est { color: var(--t-est); } .tag.ic { color: var(--t-ic); } .tag.test { color: var(--t-test); }
+.prompt { font-size: 1.07rem; margin: 0; }
+.data { font: .92rem/1.6 var(--font-mono); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; overflow-x: auto; }
+.opts { display: flex; flex-direction: column; gap: 10px; }
+.opt { text-align: left; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; cursor: pointer; display: flex; gap: 12px; align-items: flex-start; }
+.opt:hover:not([disabled]) { border-color: var(--accent); background: var(--accent-soft); }
+.opt .key { font: 600 .85rem var(--font-mono); color: var(--muted); min-width: 1.2em; padding-top: 2px; }
+.opt[disabled] { cursor: default; }
+.opt.right { border-color: var(--good); background: var(--good-soft); }
+.opt.wrong { border-color: var(--bad); background: var(--bad-soft); }
+.hint-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.hint { font-size: .93rem; color: var(--muted); border-left: 3px solid var(--line); padding-left: 12px; margin: 0; }
+.feedback { border-radius: 10px; padding: 14px 16px; font-size: .96rem; }
+.feedback.ok { background: var(--good-soft); border: 1px solid var(--good); }
+.feedback.ko { background: var(--bad-soft); border: 1px solid var(--bad); }
+.feedback b { display: block; margin-bottom: 4px; }
+.feedback .verdict { display: block; margin-bottom: 10px; font-size: 1rem; }
+.fb-sec { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 10px; }
+.fb-sec h3 { font: 600 .78rem var(--font-body); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 6px; }
+.fb-sec p { margin: 0; }
+.why { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.why li { display: flex; gap: 10px; }
+.why .lk { font: 600 .85rem var(--font-mono); color: var(--bad); min-width: 1.2em; padding-top: 1px; }
+.feedback .src { display: block; margin-top: 8px; font-size: .82rem; color: var(--muted); }
+.nav { display: flex; justify-content: space-between; gap: 10px; }
+.btn { font: 600 .95rem var(--font-body); border-radius: 8px; padding: 10px 16px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.btn[disabled] { opacity: .45; cursor: default; }
+.link-btn { background: none; border: none; color: var(--accent); font: 500 .9rem var(--font-body); cursor: pointer; padding: 0; text-decoration: underline; }
+.result h2 { font: 700 1.4rem var(--font-display); margin: 0; }
+.score-big { font: 700 2.6rem var(--font-display); font-variant-numeric: tabular-nums; }
+.bars { display: flex; flex-direction: column; gap: 10px; }
+.bar-row { display: grid; grid-template-columns: 170px 1fr 54px; gap: 10px; align-items: center; font-size: .92rem; }
+.bar { height: 10px; background: var(--bg); border-radius: 5px; overflow: hidden; border: 1px solid var(--line); }
+.bar span { display: block; height: 100%; }
+.bar-row .n { font-variant-numeric: tabular-nums; text-align: right; color: var(--muted); }
+.review { display: flex; flex-direction: column; gap: 6px; font-size: .92rem; }
+.review button { text-align: left; }
+@media (max-width: 480px) { .bar-row { grid-template-columns: 1fr 54px; } .bar-row .bar { grid-column: 1 / -1; order: 3; } .card { padding: 16px; } }
+@media (prefers-reduced-motion: no-preference) { .bar span { transition: width .4s ease; } }
+sub, sup { font-size: .72em; }
+.m { font-family: var(--font-mono); font-size: .94em; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Quiz : estimateurs, intervalles de confiance et tests</h1>
+    <p>25 questions sur les CM 1 à 4 de Description et inférence. Tables de la loi normale et de Student du formulaire autorisées.</p>
+  </header>
+
+  <div class="filters" role="group" aria-label="Filtrer par thème">
+    <button class="chip-btn" data-f="all" aria-pressed="true">Tout (25)</button>
+    <button class="chip-btn" data-f="est" aria-pressed="false">Estimateurs (5)</button>
+    <button class="chip-btn" data-f="ic" aria-pressed="false">Intervalles de confiance (6)</button>
+    <button class="chip-btn" data-f="test" aria-pressed="false">Tests d'hypothèse (14)</button>
+  </div>
+
+  <div class="status"><span>Question <strong id="pos">1</strong> / <span id="tot">20</span></span><span>Score : <strong id="score">0</strong> / <span id="answered">0</span> répondues</span></div>
+  <div class="dots" id="dots" aria-label="Accès direct aux questions"></div>
+
+  <main id="stage"></main>
+</div>
+
+<script>
+const T = { est: "Estimateurs", ic: "Intervalle de confiance", test: "Tests d'hypothèse" };
+const Q = [
+// ---------- ESTIMATEURS ----------
+{ t:"est", p:"Pourquoi divise-t-on par <span class='m'>n − 1</span> (et non par <span class='m'>n</span>) pour estimer la variance d'une population à partir d'un échantillon ?",
+  o:["Pour que l'écart type soit toujours plus grand que la moyenne",
+     "Parce que diviser par n sous-estime en moyenne la variance : la moyenne µ̂ est elle-même estimée sur l'échantillon",
+     "Parce que la variance d'un échantillon suit une loi normale",
+     "Pour pouvoir utiliser le développement de Koenig"],
+  a:1, h:"Pense à ce qui est inconnu dans la formule de la variance quand on travaille sur un échantillon.",
+  s:"Formulaire CM1-2, § 5" },
+{ t:"est", p:"Sur un échantillon on mesure : <span class='m'>4, 6, 8, 10, 12</span>. Quelle est l'estimation non biaisée de la variance de la population, σ̂² ?",
+  o:["8","10","3,16","2,5"], a:1, h:"Moyenne = 8. Somme des carrés des écarts, puis divise par n − 1.",
+  s:"Formulaire CM1-2, § 5" },
+{ t:"est", p:"Que représente l'erreur type de la moyenne, <span class='m'>σ / √n</span> ?",
+  o:["La dispersion des individus de la population autour de la moyenne",
+     "L'écart type de la distribution d'échantillonnage de µ̂ : la variabilité de la moyenne d'un échantillon à l'autre, dont la variance d'échantillonnage vaut σ²/n",
+     "L'erreur de mesure commise par l'instrument",
+     "L'écart observé entre µ̂ et la vraie moyenne µ dans notre échantillon"],
+  a:1, h:"Imagine qu'on répète l'échantillonnage un grand nombre de fois et qu'on calcule µ̂ à chaque fois.",
+  s:"Formulaire CM1-2, § 5 (démonstration) et § 7.1" },
+{ t:"est", p:"Un échantillon de <span class='m'>n = 36</span> poissons donne σ̂ = 6 cm pour la longueur. Que vaut l'erreur type sur la moyenne ?",
+  o:["6 cm","1 cm","0,17 cm","36 cm"], a:1, h:"Erreur type = σ̂ / √n.",
+  s:"Formulaire CM1-2, § 7.1" },
+{ t:"est", p:"D'après le théorème central limite, comment se distribue la moyenne d'échantillon µ̂ quand n est grand (observations indépendantes, espérance µ, écart type σ) ?",
+  o:["Selon une loi normale d'espérance µ et d'écart type σ / √n",
+     "Selon une loi normale d'espérance µ et d'écart type σ",
+     "Selon une loi uniforme sur [µ − σ ; µ + σ]",
+     "Selon la même loi que les observations, quelle qu'elle soit"],
+  a:0, h:"La moyenne lisse les fluctuations : sa dispersion diminue avec n.",
+  s:"Formulaire CM1-2, § 4 et § 7.1" },
+{ t:"ic", p:"Un intervalle de confiance à 95 % sur une moyenne a été calculé. Quelle interprétation est correcte ?",
+  o:["95 % des individus de la population ont une valeur dans cet intervalle",
+     "La moyenne de l'échantillon a 95 % de chances d'être dans l'intervalle",
+     "La procédure encadre la vraie moyenne µ avec un risque α = 5 % que µ soit en dehors",
+     "Il y a 5 % des données de l'échantillon en dehors de l'intervalle"],
+  a:2, h:"L'intervalle porte sur un paramètre de la population, pas sur les individus.",
+  s:"Formulaire CM1-2, § 7" },
+{ t:"ic", p:"Pour un IC à 95 % sur une moyenne avec un petit échantillon de <span class='m'>n = 10</span>, quel quantile t<sub>α</sub> lit-on dans la table de Student ?",
+  o:["1,96","2,228","2,262","1,833"], a:2, h:"Degrés de liberté = n − 1 ; colonne p = 0,05 (bilatéral) de la table.",
+  s:"Formulaire CM1-2, § 7.1 et table de Student" },
+{ t:"ic", p:"Un échantillon de <span class='m'>n = 16</span> escargots donne une masse moyenne µ̂ = 20 g et σ̂ = 4 g. Quel est l'IC à 95 % de la masse moyenne ?",
+  o:["[18,04 ; 21,96]","[17,87 ; 22,13]","[11,47 ; 28,53]","[18,25 ; 21,75]"], a:1,
+  h:"Erreur type = 4/√16 ; ν = 15 ; t(15 ; 0,05) dans la table.",
+  s:"Formulaire CM1-2, § 7.1" },
+{ t:"ic", p:"Un grand échantillon de <span class='m'>n = 100</span> arbres donne une hauteur moyenne µ̂ = 50 m et σ̂ = 10 m. Quel est l'IC à 95 % ?",
+  o:["[30,4 ; 69,6]","[49,0 ; 51,0]","[48,04 ; 51,96]","[47,42 ; 52,58]"], a:2,
+  h:"n grand : t<sub>α</sub> ≈ z<sub>α</sub> = 1,96.",
+  s:"Formulaire CM1-2, § 7.1" },
+{ t:"ic", p:"Avec les mêmes données, on passe d'un IC à 95 % à un IC à 99 %. Que se passe-t-il ?",
+  o:["L'intervalle devient plus étroit car on est plus précis",
+     "L'intervalle devient plus large : on prend le quantile à 99,5 % (2,576 au lieu de 1,96 pour n grand)",
+     "L'intervalle ne change pas, seul α change",
+     "L'intervalle se décale vers les grandes valeurs"],
+  a:1, h:"Pour se tromper moins souvent (α plus petit), il faut couvrir davantage de valeurs.",
+  s:"Formulaire CM1-2, § 7.1" },
+{ t:"ic", p:"On veut que la demi-longueur de l'IC à 95 % sur une moyenne soit inférieure à <span class='m'>λ = 2</span>, sachant que σ̂ ≈ 10. Quelle taille d'échantillon minimale faut-il ?",
+  o:["25","49","97","10"], a:2, h:"n > t<sub>α</sub>² σ̂² / λ² ; commence avec z = 1,96 et vérifie que n est grand.",
+  s:"Formulaire CM1-2, § 8.2" },
+{ t:"test", p:"Quel est l'objectif d'un test d'hypothèse statistique ?",
+  o:["Démontrer que l'hypothèse alternative H1 est vraie",
+     "Calculer la valeur exacte du paramètre de la population",
+     "Décider si l'écart entre ce qu'on observe et ce qu'on attend sous H0 peut s'expliquer par les seules fluctuations d'échantillonnage, avec un risque d'erreur α contrôlé",
+     "Prouver que H0 est vraie quand la p-value est grande"],
+  a:2, h:"Dans l'exemple des gélinottes : la différence de 5,7 mm peut-elle être due au hasard du tirage ?",
+  s:"CM3-4, I] Principe d'un test statistique" },
+{ t:"test", p:"Une étude sur 6 individus par groupe ne trouve pas de différence significative entre deux moyennes (p = 0,30). Que peut-on conclure ?",
+  o:["Les deux populations ont la même moyenne",
+     "On ne rejette pas H0, mais cela ne prouve pas H0 : soit il n'y a pas de différence, soit le test manque de puissance (effectif insuffisant)",
+     "Il y a 30 % de chances que H0 soit vraie",
+     "Le test a été mal calculé, il faut recommencer avec α = 30 %"],
+  a:1, h:"Le cours donne deux causes possibles à un résultat non significatif.",
+  s:"CM3-4, Erreurs de type I et II et puissance" },
+// ---------- TESTS D'HYPOTHÈSE ----------
+{ t:"test", p:"Qu'est-ce que l'erreur de type I (risque de première espèce, α) ?",
+  o:["Ne pas rejeter H0 alors qu'elle est fausse",
+     "Rejeter H0 alors qu'elle est vraie",
+     "Rejeter H1 alors qu'elle est vraie",
+     "Se tromper dans le calcul de la statistique"],
+  a:1, h:"Dans l'analogie du cours : condamner un innocent.",
+  s:"CM3-4, Erreurs de type I et II" },
+{ t:"test", p:"Un chercheur abaisse son seuil α de 5 % à 1 % pour n'avancer que des conclusions très fiables. Quelle conséquence, à effectif constant ?",
+  o:["Le risque β (type II) augmente : il risque davantage de ne pas détecter un effet réel",
+     "Le risque β diminue aussi",
+     "La puissance du test augmente",
+     "Aucune, α et β sont indépendants"],
+  a:0, h:"Les deux erreurs sont antagonistes.",
+  s:"CM3-4, Erreurs de type I et II" },
+{ t:"test", p:"Dans le test par permutation sur les gélinottes, on trouve <span class='m'>P(D<sub>perm</sub> ≥ D<sub>obs</sub> | H0) = 0,0087</span> avec α = 5 %. Quelle conclusion ?",
+  o:["On ne rejette pas H0 car 0,0087 est très petit",
+     "On rejette H0 : la probabilité de se tromper en la rejetant (0,87 %) est inférieure à α",
+     "H0 est vraie avec une probabilité de 99,13 %",
+     "On ne peut pas conclure sans table"],
+  a:1, h:"Compare la p-value au risque α fixé au départ.",
+  s:"CM3-4, Principe d'un test (exemple des gélinottes)" },
+{ t:"test", p:"On se demande : « la taille moyenne de la rectrice est-elle <em>plus grande</em> au site 2 qu'au site 1 ? ». Quel test et quelle hypothèse alternative ?",
+  o:["Test bilatéral, H1 : µ<sub>1</sub> ≠ µ<sub>2</sub>",
+     "Test unilatéral, H1 : µ<sub>1</sub> < µ<sub>2</sub>",
+     "Test unilatéral, H1 : µ<sub>1</sub> = µ<sub>2</sub>",
+     "Test bilatéral, H1 : µ<sub>1</sub> > µ<sub>2</sub>"],
+  a:1, h:"La question précise un sens à la différence.",
+  s:"CM3-4, Test bilatéral vs unilatéral" },
+{ t:"test", p:"Pour comparer deux moyennes d'échantillons indépendants, quelle séquence de tests suit le cours ?",
+  o:["Test t de Student, puis test de Fisher, puis Shapiro-Wilk",
+     "Shapiro-Wilk (normalité), puis Fisher (égalité des variances), puis t de Student ou t avec correction de Welch",
+     "Wilcoxon-Mann-Whitney, puis Shapiro-Wilk",
+     "Directement le test t, les conditions sont facultatives"],
+  a:1, h:"On vérifie les conditions de validité avant le test principal.",
+  s:"CM3-4, II] Comparaison de 2 moyennes" },
+{ t:"test", p:"Le test de Shapiro-Wilk rejette la normalité de vos données. Quelle affirmation sur le test non paramétrique de Wilcoxon-Mann-Whitney, par rapport au test t de Student, est correcte ?",
+  o:["Il n'a aucune condition de validité",
+     "Il compare les moyennes plus précisément que le test t",
+     "Il ne suppose ni normalité ni égalité des variances et travaille sur les rangs : il compare des distributions plutôt que des moyennes, mais exige toujours des observations indépendantes",
+     "Il n'est utilisable qu'avec de grands échantillons (n > 30)"],
+  a:2, h:"Un test paramétrique repose sur des paramètres (moyenne, variance) d'une loi supposée.",
+  s:"CM3-4, a-2) Approche non paramétrique" },
+{ t:"test", p:"On compare la longueur (mm) des œufs de deux populations d'oiseaux. Les deux échantillons sont normaux, et le test de Fisher ne rejette pas l'égalité des variances.<div class='data'>Population 1 : n<sub>1</sub> = 12 ; µ̂<sub>1</sub> = 25,0 ; σ̂<sub>1</sub>² = 6,0<br>Population 2 : n<sub>2</sub> = 14 ; µ̂<sub>2</sub> = 22,6 ; σ̂<sub>2</sub>² = 5,0</div>Calcule t<sub>obs</sub> et conclus (test bilatéral, α = 5 %).",
+  o:["t<sub>obs</sub> = 2,61 ; ν = 24 ; t<sub>théo</sub> = 2,064 : on rejette H0, les longueurs moyennes diffèrent",
+     "t<sub>obs</sub> = 1,03 ; ν = 24 ; t<sub>théo</sub> = 2,064 : on ne rejette pas H0",
+     "t<sub>obs</sub> = 1,12 ; ν = 24 ; t<sub>théo</sub> = 2,064 : on ne rejette pas H0",
+     "t<sub>obs</sub> = 2,61 ; ν = 26 ; t<sub>théo</sub> = 1,706 : on rejette H0"],
+  a:0, h:"1) Variance commune σ̂² = ((n<sub>1</sub> − 1)σ̂<sub>1</sub>² + (n<sub>2</sub> − 1)σ̂<sub>2</sub>²) / (n<sub>1</sub> + n<sub>2</sub> − 2). 2) t = (µ̂<sub>1</sub> − µ̂<sub>2</sub>) / (σ̂ √(1/n<sub>1</sub> + 1/n<sub>2</sub>)). 3) ν = n<sub>1</sub> + n<sub>2</sub> − 2.",
+  s:"CM3-4, Test de Student sur échantillons non appariés (formule 1)" },
+{ t:"test", p:"On compare la masse (g) de deux lignées de souris, avec seulement <span class='m'>n = 5</span> individus par lignée. Quel test utiliser ?",
+  o:["Un test Z, en comparant à 1,96 (quantile de la loi normale)",
+     "Le test t de Student à variance commune, avec ν = n<sub>1</sub> + n<sub>2</sub> − 2 = 8 degrés de liberté",
+     "Le test t avec correction de Welch, car les effectifs sont faibles",
+     "Le test de Wilcoxon-Mann-Whitney, car n < 10 (règle vue en TP)"],
+  a:3, h:"Avec si peu d'individus, peut-on vraiment vérifier qu'une variable suit une loi normale ?",
+  s:"CM3-4, a-2) Approche non paramétrique ; règle n < 10 vue en TP" },
+{ t:"test", p:"Suite de la question précédente. Masses mesurées :<div class='data'>Lignée 1 : 12 · 14 · 15 · 16 · 18<br>Lignée 2 : 16 · 18 · 19 · 20 · 22</div>Test de Wilcoxon-Mann-Whitney bilatéral à α = 5 %. Pour n<sub>1</sub> = n<sub>2</sub> = 5, la table donne <span class='m'>U<sub>théo</sub> = 2</span>. Quel résultat obtient-on ?",
+  o:["ΣR<sub>1</sub> = 17, ΣR<sub>2</sub> = 38 ; U<sub>obs</sub> = min(23 ; 2) = 2 ≤ 2 : on rejette H0",
+     "ΣR<sub>1</sub> = 17, ΣR<sub>2</sub> = 38 ; U<sub>obs</sub> = 23 > 2 : on ne rejette pas H0",
+     "ΣR<sub>1</sub> = 16, ΣR<sub>2</sub> = 39 ; U<sub>obs</sub> = 1 ≤ 2 : on rejette H0",
+     "ΣR<sub>1</sub> = 17, ΣR<sub>2</sub> = 38 ; U<sub>obs</sub> = 2 : on ne rejette pas H0, car il faudrait U<sub>obs</sub> > U<sub>théo</sub>"],
+  a:0, h:"Classe les 10 valeurs ensemble, donne un rang moyen aux ex aequo (16 et 18 apparaissent deux fois), puis U<sub>1</sub> = n<sub>1</sub>n<sub>2</sub> + n<sub>1</sub>(n<sub>1</sub> + 1)/2 − ΣR<sub>1</sub>.",
+  s:"CM3-4, Test de Wilcoxon-Mann-Whitney" },
+{ t:"test", p:"Tailles de 15 mammifères marins : le test de Shapiro-Wilk donne <span class='m'>W = 0,876</span>, et la table donne <span class='m'>W<sub>95 %, 15</sub> = 0,881</span>. Que conclure, et quelle suite donner pour comparer ces animaux à un autre groupe ?",
+  o:["W < W<sub>théo</sub> : on rejette la normalité ; on préfère un test non paramétrique (Wilcoxon-Mann-Whitney)",
+     "W < W<sub>théo</sub> : on accepte la normalité ; on fait un test t de Student",
+     "W est proche de 1 : les données sont normales, on fait un test de Fisher",
+     "Shapiro-Wilk ne s'applique pas sous n = 30"],
+  a:0, h:"Pour Shapiro-Wilk, plus W est grand, plus la normalité est crédible. H0 = normalité.",
+  s:"CM3-4, II.1 Test de Shapiro-Wilk (exemple des mammifères marins)" },
+{ t:"test", p:"Ailes de papillons, 10 en Alaska (A) et 10 en Illinois (I). Somme des rangs : <span class='m'>ΣR<sub>A</sub> = 55</span>, <span class='m'>ΣR<sub>I</sub> = 155</span>. En bilatéral à 5 %, la table donne <span class='m'>U<sub>théo</sub> = 23</span>. Que valent U<sub>obs</sub> et la décision ?",
+  o:["U<sub>obs</sub> = 100 > 23 : on ne rejette pas H0",
+     "U<sub>obs</sub> = 0 ≤ 23 : on rejette H0, les tailles d'ailes diffèrent",
+     "U<sub>obs</sub> = 50 > 23 : on ne rejette pas H0",
+     "U<sub>obs</sub> = 0 < 23 : on ne rejette pas H0 car U<sub>obs</sub> doit dépasser U<sub>théo</sub>"],
+  a:1, h:"U<sub>1</sub> = n<sub>1</sub>n<sub>2</sub> + n<sub>1</sub>(n<sub>1</sub> + 1)/2 − ΣR<sub>1</sub> ; en bilatéral, U<sub>obs</sub> = min(U<sub>1</sub>, U<sub>2</sub>).",
+  s:"CM3-4, a-2) Test de Wilcoxon-Mann-Whitney (exemple de Papilio glaucus)" },
+{ t:"test", p:"Test t de Student avec <span class='m'>ν = 20</span>, α = 5 % et <span class='m'>t<sub>obs</sub> = 1,90</span>. Quelle est la différence entre un test bilatéral et un test unilatéral à droite (H1 : µ<sub>1</sub> > µ<sub>2</sub>) ?",
+  o:["Bilatéral : α/2 = 2,5 % dans chaque queue, rejet si |t<sub>obs</sub>| ≥ 2,086, donc non-rejet. Unilatéral : tout α à droite, rejet si t<sub>obs</sub> ≥ 1,725, donc rejet de H0",
+     "Aucune différence : le seuil est 2,086 dans les deux cas, donc non-rejet",
+     "Bilatéral : seuil 1,725, donc rejet. Unilatéral : seuil 2,086, donc non-rejet",
+     "L'unilatéral est plus exigeant (seuil 2,528) : non-rejet dans les deux cas"],
+  a:0, h:"Dans la table du formulaire, p est la probabilité des deux queues réunies. Où se trouve la zone de rejet de 5 % dans chaque cas ?",
+  s:"CM3-4, Test bilatéral vs unilatéral ; table de Student" }
+];
+
+const EXP = [
+// 1
+{ c:"Formulaire § 5 : « Du fait de l'incertitude sur la moyenne de la population établie par rapport à un échantillon, la formule précédente tend à sous-estimer la variance de la population. » On utilise donc σ̂² = (1/(n − 1)) Σ(x<sub>i</sub> − µ̂)². C'est la <b>correction de Bessel</b>.",
+  a:"Sur un échantillon, on ne connaît pas µ : on la remplace par µ̂, calculée sur les mêmes données. Or µ̂ est, par construction, la valeur qui rend Σ(x<sub>i</sub> − µ̂)² la plus petite possible. Les écarts à µ̂ sont donc en moyenne plus petits que les écarts à la vraie µ, et la variance en 1/n est trop faible (estimateur biaisé). Diviser par n − 1 compense exactement ce biais.",
+  p:["Le choix de n − 1 n'a aucun lien avec la comparaison entre écart type et moyenne.", null, "Le choix du dénominateur ne vient pas de la loi suivie par la variance, mais du biais introduit par l'estimation de µ.", "Le développement de Koenig est une simple réécriture du calcul ; il existe avec 1/n comme avec 1/(n − 1)."] },
+// 2
+{ c:"Formulaire § 5 : estimateur sans biais de la variance, σ̂² = (1/(n − 1)) Σ(x<sub>i</sub> − µ̂)². L'écart type est la racine carrée de la variance.",
+  a:"1) Moyenne : µ̂ = (4 + 6 + 8 + 10 + 12)/5 = 40/5 = 8.<br>2) Écarts à la moyenne : −4, −2, 0, 2, 4 ; carrés : 16, 4, 0, 4, 16 ; somme des carrés des écarts (SCE) = 40.<br>3) σ̂² = SCE/(n − 1) = 40/4 = <b>10</b>.",
+  p:["8 = 40/5 : on a divisé par n. C'est la variance « de population » appliquée à un échantillon, donc biaisée (elle sous-estime σ²).", null, "3,16 = √10 : c'est l'écart type σ̂, pas la variance.", "2,5 = 10/4 : on a divisé deux fois, ce qui ne correspond à aucune formule du cours."] },
+// 3
+{ c:"Formulaire § 5 (démonstration) : Var(µ̂) = σ²/n. § 7.1 : « la moyenne estimée de cette variable a une espérance µ et un écart type de σ/√n. La quantité σ/√n porte le nom d'<b>erreur type sur la moyenne</b>. »",
+  a:"Chaque échantillon donne une moyenne µ̂ différente : µ̂ est elle-même une variable aléatoire. L'ensemble des valeurs possibles de µ̂ forme la <b>distribution d'échantillonnage</b> de la moyenne. Sa variance, la <b>variance d'échantillonnage</b>, vaut σ²/n, et son écart type, σ/√n, est l'erreur type. Elle mesure la précision de µ̂ comme estimateur de µ, et diminue quand n augmente (loi des grands nombres).",
+  p:["La dispersion des individus, c'est σ (ou σ̂). Elle ne diminue pas quand on échantillonne plus d'individus, contrairement à l'erreur type.", null, "L'erreur de mesure instrumentale est une autre source d'erreur ; l'erreur type ne parle que de la variabilité due à l'échantillonnage.", "L'écart réel entre µ̂ et µ est inconnu (on ne connaît pas µ). L'erreur type décrit l'ordre de grandeur attendu de cet écart, pas sa valeur."] },
+// 4
+{ c:"Formulaire § 7.1 : erreur type sur la moyenne = σ/√n, estimée par σ̂/√n.",
+  a:"σ̂/√n = 6/√36 = 6/6 = <b>1 cm</b>. Interprétation : si l'on répétait l'échantillonnage de 36 poissons, les moyennes obtenues varieraient typiquement d'environ 1 cm autour de µ, alors que les individus varient d'environ 6 cm.",
+  p:["6 cm est σ̂, la dispersion des individus, pas celle de la moyenne.", null, "0,17 = 6/36 : on a divisé par n au lieu de √n.", "36 est l'effectif, sans rapport avec une erreur."] },
+// 5
+{ c:"Formulaire § 4 (théorème central limite) : pour des variables indépendantes de même loi, d'espérance µ et d'écart type σ, la somme tend vers une loi normale. § 7.1 : la moyenne estimée a une espérance µ et un écart type σ/√n.",
+  a:"µ̂ est une somme de n variables indépendantes divisée par n. D'après le TCL, elle tend vers une loi normale. Son espérance est µ (µ̂ est un estimateur sans biais de µ), et son écart type est σ/√n. Donc µ̂ suit approximativement <b>N(µ, σ²/n)</b>, quelle que soit la loi des observations, dès que n est grand. C'est ce qui justifie la construction de l'IC sur la moyenne.",
+  p:[null, "L'écart type σ est celui des individus ; la moyenne est moins dispersée que les individus, d'un facteur √n.", "Aucune loi uniforme n'apparaît dans le TCL.", "Justement non : le TCL dit que la moyenne devient normale même si les observations ne le sont pas."] },
+// 7
+{ c:"Formulaire § 7 : « un intervalle de valeurs qui permet d'encadrer le <b>paramètre</b> que l'on estime […] α correspond au risque que le paramètre que l'on estime soit en dehors de l'intervalle de confiance. »",
+  a:"L'IC porte sur µ, la moyenne de la <b>population</b> (inconnue), pas sur les individus ni sur µ̂. µ̂ est connue et toujours au centre de l'intervalle. Le niveau 95 % signifie que, si l'on répétait l'échantillonnage, 95 % des intervalles construits ainsi contiendraient µ : on accepte un risque α = 5 % de se tromper.",
+  p:["La largeur de l'IC dépend de σ/√n, pas de σ : il est bien plus étroit que la dispersion des individus.", "µ̂ est au centre de l'IC par construction : elle y est à 100 %.", null, "L'IC ne décrit pas la répartition des données de l'échantillon."] },
+// 8
+{ c:"Formulaire § 7.1 : t<sub>α</sub> est « le quantile de la loi de Student à n − 1 degrés de liberté à 97,5 % » pour un IC à 95 %. § 6.9 : la loi de Student sert pour les petits échantillons.",
+  a:"1) Petit échantillon : loi de Student, pas loi normale.<br>2) ddl : ν = n − 1 = 9.<br>3) IC à 95 % : quantile à 97,5 %, soit la colonne p = 0,05 de la table (p = probabilité totale des deux queues).<br>4) Lecture : ligne 9, colonne 0,05 → <b>2,2622</b>.",
+  p:["1,96 est le quantile de la loi normale, valable seulement pour les grands échantillons.", "2,228 se lit à la ligne ν = 10 : on a oublié de retirer 1 à n.", null, "1,833 est dans la colonne p = 0,1, donc pour un IC à 90 %."] },
+// 9
+{ c:"Formulaire § 7.1 : IC = [µ̂ − t<sub>α</sub> σ̂/√n ; µ̂ + t<sub>α</sub> σ̂/√n], avec t<sub>α</sub> le quantile de Student à n − 1 ddl et à 1 − α/2.",
+  a:"1) Erreur type : σ̂/√n = 4/√16 = 4/4 = 1 g.<br>2) n = 16 est petit : loi de Student, ν = 15, colonne p = 0,05 → t = 2,1314.<br>3) Demi-longueur : a = 2,1314 × 1 = 2,13.<br>4) IC = 20 ± 2,13 = <b>[17,87 ; 22,13]</b>.",
+  p:["On a pris 1,96 (loi normale) : inadapté pour n = 16, l'IC est alors trop étroit.", null, "On a multiplié t par σ̂ au lieu de σ̂/√n : on a oublié de diviser par √n.", "On a pris t = 1,753 (colonne p = 0,1) : c'est un IC à 90 %."] },
+// 10
+{ c:"Formulaire § 7.1 : « pour les grands échantillons et comme le prédit le théorème central limite, t<sub>α</sub> peut être estimé par z<sub>α</sub> », soit 1,96 à 95 %.",
+  a:"1) Erreur type : 10/√100 = 1 m.<br>2) n = 100 est grand : z = 1,96 (la table de Student donne 1,990 pour ν = 80 et 1,980 pour ν = 120, très proches).<br>3) IC = 50 ± 1,96 × 1 = <b>[48,04 ; 51,96]</b>.",
+  p:["On a utilisé σ̂ = 10 au lieu de l'erreur type : 50 ± 1,96 × 10.", "50 ± 1 : on a oublié de multiplier par le quantile 1,96.", null, "On a pris 2,576 : c'est le quantile pour un IC à 99 %."] },
+// 11
+{ c:"Formulaire § 7.1 : « pour un intervalle à 99 %, les quantiles seront alors pris à 99,5 % ».",
+  a:"Passer de 95 % à 99 % de confiance revient à diminuer α (de 5 % à 1 %). Il faut alors aller chercher le quantile plus loin dans la queue : 2,576 au lieu de 1,96 (n grand). La demi-longueur t<sub>α</sub> × σ̂/√n augmente : l'IC est <b>plus large</b>. À n fixé, plus de confiance se paie par moins de précision.",
+  p:["C'est l'inverse : un IC plus sûr doit couvrir plus de valeurs, donc il est plus large.", null, "α détermine le quantile, donc la largeur de l'IC.", "L'IC reste centré sur µ̂ : seule sa largeur change."] },
+// 12
+{ c:"Formulaire § 8.2 : on veut a<sub>α</sub> < λ, donc t<sub>α</sub> σ̂/√n < λ, d'où <b>n > t<sub>α</sub>² σ̂²/λ²</b>. Si n est grand (n > 30), on peut approximer t<sub>α</sub> par z<sub>α</sub>.",
+  a:"1) On part de z = 1,96.<br>2) n > 1,96² × 10² / 2² = 3,8416 × 100 / 4 = 96,04.<br>3) n doit être entier : <b>n = 97</b>.<br>4) Vérification : 97 > 30, l'approximation par la loi normale était donc justifiée.",
+  p:["25 = 10²/2² : on a oublié le quantile.", "49 = 1,96 × 100 / 4 : on a oublié d'élever le quantile au carré.", null, "10 ne correspond à aucun calcul de la formule."] },
+// 13
+{ c:"CM3-4, I] : on pose H0 et H1, puis on compare la statistique observée à la statistique attendue sous H0. « Si la valeur observée […] se trouve vers le centre de la distribution des valeurs obtenues sous H0, cela montre qu'une telle valeur aurait très bien pu être obtenue au hasard de l'échantillonnage. »",
+  a:"Deux échantillons ont toujours des moyennes un peu différentes, même s'ils viennent de la même population (fluctuations d'échantillonnage). Le test sert à <b>décider si l'écart observé est trop grand pour être dû au seul hasard</b>. On le fait avec un risque d'erreur α fixé à l'avance. C'est une décision (rejeter ou non H0), pas une démonstration.",
+  p:["Un test ne démontre rien : rejeter H0 comporte toujours un risque α de se tromper.", "Estimer un paramètre, c'est le rôle des estimateurs et des IC, pas des tests.", null, "Une grande p-value signifie seulement qu'on ne peut pas rejeter H0, pas qu'elle est vraie."] },
+// 14
+{ c:"CM3-4 : « Un résultat non statistiquement significatif peut avoir 2 causes : l'hypothèse H0 est vraie […] ; la puissance statistique n'est pas suffisante (i.e. nombre d'individus insuffisant). »",
+  a:"Avec 6 individus par groupe, un test a peu de puissance : même s'il existe une vraie différence, il peut ne pas la détecter (erreur de type II, risque β). p = 0,30 > 0,05 conduit donc à <b>ne pas rejeter H0</b>, sans pouvoir affirmer qu'il n'y a pas de différence. C'est une limite majeure des tests : l'absence de preuve n'est pas la preuve de l'absence.",
+  p:["« Ne pas rejeter H0 » ne veut pas dire « H0 est vraie » : le test a pu manquer de puissance.", null, "La p-value est la probabilité d'observer un tel écart si H0 est vraie, pas la probabilité que H0 soit vraie.", "α est fixé à l'avance (5 % en général) ; on ne l'ajuste pas après coup pour obtenir un résultat."] },
+// 15
+{ c:"CM3-4 : « erreur de type I (ou de première espèce) = rejet de l'hypothèse nulle alors qu'elle est vraie ; erreur de type II (ou de seconde espèce) = acceptation de l'hypothèse nulle alors qu'elle est fausse ». Analogie : condamner un innocent / laisser un coupable en liberté.",
+  a:"L'erreur de type I consiste à <b>rejeter H0 alors qu'elle est vraie</b> : conclure à une différence qui n'existe pas. Sa probabilité est α, que l'on fixe avant le test (souvent 5 %).",
+  p:["C'est l'erreur de type II (β).", null, "On formule les erreurs par rapport à H0, l'hypothèse testée.", "Une erreur de calcul n'est pas un risque statistique."] },
+// 16
+{ c:"CM3-4 : abaisser α « augmente les chances de commettre une autre erreur, celle de ne pas rejeter l'hypothèse nulle alors qu'elle est fausse ». « Deux erreurs antagonistes : abaisser l'une augmente immédiatement l'autre. »",
+  a:"Avec α = 1 %, il faut un écart beaucoup plus grand pour rejeter H0. On conserve donc H0 plus souvent, y compris quand elle est fausse : <b>β augmente</b>, et la puissance (1 − β) diminue. Le choix de α est un compromis adapté à la situation.",
+  p:[null, "Les deux risques varient en sens inverse : si α baisse, β monte.", "La puissance vaut 1 − β : si β augmente, la puissance diminue.", "Le cours insiste sur leur antagonisme : ils ne sont pas indépendants."] },
+// 17
+{ c:"CM3-4 (gélinottes) : P(D<sub>perm</sub> ≥ D<sub>obs</sub> | H0) = 0,0087. « Cette probabilité constitue le risque que l'on prend en rejetant l'hypothèse nulle […] Ici le risque est faible, donc on peut rejeter H0 en ayant 0,87 % de chance de se tromper. »",
+  a:"Règle de décision : on compare la p-value au risque α fixé au départ. p = 0,0087 < α = 0,05, donc on <b>rejette H0</b>. Seules 87 permutations sur 10 000 donnent une différence au moins aussi grande que celle observée : un tel écart est très improbable si les deux sites ont la même population.",
+  p:["C'est l'inverse : une p-value très petite conduit à rejeter H0.", null, "1 − p n'est pas la probabilité que H0 soit vraie. p est calculée en supposant H0 vraie.", "La p-value suffit : comparer p à α revient au même que comparer la statistique à la table."] },
+// 18
+{ c:"CM3-4 : « Il y a-t-il une différence […] ? (Test bilatéral). Est-ce que la taille moyenne de l'échantillon 1 est supérieure à celle de l'échantillon 2 ? (Test unilatéral). » H0 est toujours l'égalité µ<sub>1</sub> = µ<sub>2</sub>.",
+  a:"La question indique un <b>sens</b> (« plus grande au site 2 ») : c'est un test unilatéral. H0 : µ<sub>1</sub> = µ<sub>2</sub> et H1 : µ<sub>1</sub> < µ<sub>2</sub>. On rejette H0 si t<sub>obs</sub> ≤ −t<sub>théo, α</sub> (toute la zone de rejet α est d'un seul côté).",
+  p:["Un test bilatéral répond à « y a-t-il une différence ? », sans sens a priori.", null, "L'égalité est toujours H0, jamais H1.", "Un H1 orienté (>) correspond à un test unilatéral, pas bilatéral ; et le sens est inversé ici."] },
+// 19
+{ c:"CM3-4, II] : la comparaison de 2 moyennes « nécessite plusieurs tests successifs : test de normalité (Shapiro-Wilk), test d'homogénéité des variances (Fisher), test de comparaison de moyennes (t de Student ou t avec correction de Welch) ou de rangs (Wilcoxon-Mann-Whitney) ».",
+  a:"On vérifie d'abord les conditions de validité avant le test principal :<br>1) <b>Normalité</b> (Shapiro-Wilk). Si elle est rejetée, test non paramétrique (Wilcoxon-Mann-Whitney).<br>2) <b>Égalité des variances</b> (Fisher, plus grande variance au numérateur).<br>3) Variances égales : <b>t de Student</b> avec variance commune ; variances différentes : <b>t avec correction de Welch</b>.",
+  p:["Faire le test t avant d'avoir vérifié ses conditions n'a pas de sens.", null, "Le test non paramétrique est l'alternative quand la normalité est rejetée, pas une étape préalable.", "Le cours précise les conditions de validité du test t : indépendance, normalité, égalité des variances."] },
+// 20
+{ c:"CM3-4, a-2) : tests non paramétriques : « absence d'hypothèses préalables sur les distributions : normalité, stabilité de la variance. Par contre, l'indépendance des observations demeure une condition requise » ; « applicables aux échantillons de petite taille » ; « basés sur les rangs (moins précis), ce ne sont donc pas des tests de comparaison de moyennes à proprement parler ».",
+  a:"<b>Paramétrique</b> (t de Student) : suppose une loi (normale) et compare ses paramètres (moyennes), avec des conditions à vérifier. <b>Non paramétrique</b> (Wilcoxon-Mann-Whitney) : remplace les valeurs par leurs rangs et compare les distributions, sans hypothèse sur la loi. Quand les conditions du t sont remplies, la puissance du U vaut environ 95 % de celle du t. Avec des données fortement non normales, le t devient trop conservateur et le U est préférable.",
+  p:["L'indépendance des observations reste une condition obligatoire.", "Il travaille sur les rangs : il est moins précis sur les moyennes, qu'il ne compare d'ailleurs pas directement.", null, "Au contraire, il convient aux petits échantillons (table de U pour n ≤ 20)."] },
+// 21
+{ c:"CM3-4, test de Student non apparié (formule 1, variances égales) : σ̂² = ((n<sub>1</sub> − 1)σ̂<sub>1</sub>² + (n<sub>2</sub> − 1)σ̂<sub>2</sub>²)/(n<sub>1</sub> + n<sub>2</sub> − 2) ; t<sub>obs</sub> = (µ̂<sub>1</sub> − µ̂<sub>2</sub>)/(σ̂ √(1/n<sub>1</sub> + 1/n<sub>2</sub>)) ; T suit une loi de Student à ν = n<sub>1</sub> + n<sub>2</sub> − 2 ddl. Bilatéral : rejet si |t<sub>obs</sub>| ≥ t<sub>théo, α/2</sub>.",
+  a:"1) Hypothèses : H0 : µ<sub>1</sub> = µ<sub>2</sub> ; H1 : µ<sub>1</sub> ≠ µ<sub>2</sub> (bilatéral).<br>2) Conditions : normalité et égalité des variances données dans l'énoncé, donc formule 1.<br>3) Variance commune : (11 × 6,0 + 13 × 5,0)/24 = 131/24 = 5,458, d'où σ̂ = √5,458 = 2,336.<br>4) √(1/12 + 1/14) = √0,1548 = 0,393.<br>5) t<sub>obs</sub> = (25,0 − 22,6)/(2,336 × 0,393) = 2,4/0,919 = <b>2,61</b>.<br>6) ν = 12 + 14 − 2 = 24 ; table, colonne p = 0,05 : t<sub>théo</sub> = 2,064.<br>7) |2,61| > 2,064 : on <b>rejette H0</b>. Les longueurs moyennes des œufs diffèrent significativement au seuil de 5 %.",
+  p:[null, "1,03 = 2,4/2,336 : on a oublié de multiplier σ̂ par √(1/n<sub>1</sub> + 1/n<sub>2</sub>).", "1,12 = 2,4/(5,458 × 0,393) : on a utilisé la variance commune au lieu de son écart type.", "Le t<sub>obs</sub> est juste, mais ν = 26 oublie les 2 ddl perdus (un par moyenne estimée), et 1,706 est un quantile unilatéral alors que le test est bilatéral."] },
+// 22
+{ c:"CM3-4, a-2) : les tests non paramétriques n'ont pas d'hypothèse préalable sur les distributions et sont « applicables au traitement des échantillons de petite taille ». Les tests paramétriques supposent des données normales de même variance.",
+  a:"Règle vue en TP : <b>quand les effectifs sont inférieurs à 10 (n < 10), on utilise un test non paramétrique</b>. Ici, avec n = 5 par groupe, on ne peut pas vérifier de façon fiable que les données suivent une loi normale, ni comparer les variances : un test de Shapiro-Wilk ou de Fisher n'a quasiment aucune puissance avec si peu de valeurs. Les conditions des tests paramétriques ne sont donc pas garanties. On utilise le <b>test de Wilcoxon-Mann-Whitney</b>, fondé sur les rangs, sans hypothèse sur la loi. L'indépendance des observations reste exigée.",
+  p:["Le test Z (loi normale, 1,96) suppose un grand échantillon : c'est le contraire de la situation.", "Le test t suppose la normalité et l'égalité des variances, invérifiables avec n = 5.", "Welch corrige des variances inégales, mais suppose toujours la normalité : le problème des petits effectifs reste entier.", null] },
+// 23
+{ c:"CM3-4, test U : on classe toutes les valeurs ensemble, avec un rang moyen pour les ex aequo. U<sub>1</sub> = n<sub>1</sub>n<sub>2</sub> + n<sub>1</sub>(n<sub>1</sub> + 1)/2 − ΣR<sub>1</sub> ; U<sub>2</sub> = n<sub>1</sub>n<sub>2</sub> − U<sub>1</sub>. Bilatéral : U<sub>obs</sub> = min(U<sub>1</sub>, U<sub>2</sub>). « Si U<sub>obs</sub> ≤ U<sub>théo</sub>, on rejette H0 (c'est le contraire pour les tests paramétriques et la table de Student, attention !) »",
+  a:"1) H0 : les rangs des deux lignées sont uniformément mélangés ; H1 : ils ne le sont pas (bilatéral).<br>2) Classement des 10 valeurs : 12→1, 14→2, 15→3, 16 et 16→4,5, 18 et 18→6,5, 19→8, 20→9, 22→10.<br>3) ΣR<sub>1</sub> = 1 + 2 + 3 + 4,5 + 6,5 = 17 ; ΣR<sub>2</sub> = 4,5 + 6,5 + 8 + 9 + 10 = 38. Contrôle : 17 + 38 = 55 = 10 × 11/2.<br>4) U<sub>1</sub> = 25 + 15 − 17 = 23 ; U<sub>2</sub> = 25 + 15 − 38 = 2. Contrôle : 23 + 2 = 25 = n<sub>1</sub>n<sub>2</sub>.<br>5) U<sub>obs</sub> = min(23 ; 2) = 2.<br>6) 2 ≤ U<sub>théo</sub> = 2 : on <b>rejette H0</b> au seuil de 5 %. Les souris de la lignée 2 sont plus lourdes.",
+  p:[null, "On a pris le maximum : en bilatéral, U<sub>obs</sub> est le plus petit des deux U.", "Les ex aequo ont reçu des rangs différents (4 et 5, 6 et 7) au lieu du rang moyen ; les sommes de rangs sont fausses.", "Les calculs sont justes, mais la règle est inversée : pour la table de U, on rejette H0 quand U<sub>obs</sub> est inférieur ou égal à U<sub>théo</sub>."] },
+// 24
+{ c:"CM3-4, II.1 : pour Shapiro-Wilk, H0 = la distribution suit une loi normale. « Dans le cas où W ≥ W<sub>1−α, n</sub>, nous pourrons accepter […] l'hypothèse nulle » ; « Si W < W<sub>1−α, n</sub>, H0 est rejetée : la distribution n'est pas normale. » Le test est sensible aux asymétries.",
+  a:"W = 0,876 < W<sub>95 %, 15</sub> = 0,881 : on <b>rejette la normalité</b> au risque de 5 %. Les grandes valeurs (580 et 850 cm) étirent la distribution vers la droite (asymétrie). La condition de normalité du test t n'étant pas remplie, pour comparer ce groupe à un autre on passe à un test non paramétrique (Wilcoxon-Mann-Whitney).",
+  p:[null, "W < W<sub>théo</sub> conduit au rejet de la normalité, pas à son acceptation.", "La décision se prend en comparant W à la valeur de la table, pas à 1 ; ici W est sous le seuil.", "Shapiro-Wilk s'applique aux petits échantillons (la table donne W<sub>théo</sub> pour n = 15)."] },
+// 25
+{ c:"CM3-4, test U (exemple de Papilio glaucus) : U<sub>1</sub> = n<sub>1</sub>n<sub>2</sub> + n<sub>1</sub>(n<sub>1</sub> + 1)/2 − ΣR<sub>1</sub> ; U<sub>1</sub> + U<sub>2</sub> = n<sub>1</sub>n<sub>2</sub>. Bilatéral : U<sub>obs</sub> = min(U<sub>1</sub>, U<sub>2</sub>), rejet de H0 si U<sub>obs</sub> ≤ U<sub>théo</sub>. Sous H0, la moyenne de U est n<sub>1</sub>n<sub>2</sub>/2.",
+  a:"1) U<sub>A</sub> = 10 × 10 + 10 × 11/2 − 55 = 100 + 55 − 55 = 100.<br>2) U<sub>I</sub> = 100 + 55 − 155 = 0. Contrôle : 100 + 0 = 100 = n<sub>1</sub>n<sub>2</sub>.<br>3) U<sub>obs</sub> = min(100 ; 0) = 0.<br>4) 0 ≤ U<sub>théo</sub> = 23 : on <b>rejette H0</b>. Les deux groupes ne sont pas du tout mélangés (les 10 papillons d'Alaska occupent les 10 premiers rangs) : la taille des ailes diffère entre l'Alaska et l'Illinois.",
+  p:["On a pris le maximum (100) au lieu du minimum.", null, "50 = n<sub>1</sub>n<sub>2</sub>/2 est la valeur moyenne attendue de U sous H0, pas U<sub>obs</sub>.", "La règle est inversée : avec la table de U, on rejette H0 quand U<sub>obs</sub> ≤ U<sub>théo</sub>."] },
+{ c:"CM3-4 : « Deux types de test : test bilatéral vs unilatéral. Le choix de l'un ou de l'autre dépend de la question que l'on se pose. » Bilatéral : H1 : µ<sub>1</sub> ≠ µ<sub>2</sub>, rejet si |S| ≥ |S<sub>théo, α/2</sub>|. Unilatéral à droite : H1 : µ<sub>1</sub> > µ<sub>2</sub>, rejet si S ≥ S<sub>théo, α</sub>. Unilatéral à gauche : rejet si S ≤ −S<sub>théo, α</sub>.",
+  a:"1) <b>Bilatéral</b> : on cherche une différence dans un sens ou dans l'autre. Le risque α = 5 % est partagé entre les deux queues (2,5 % de chaque côté). Dans la table, colonne p = 0,05 : t<sub>théo</sub> = 2,086. |1,90| < 2,086 : on ne rejette pas H0.<br>2) <b>Unilatéral à droite</b> : on ne cherche une différence que dans un sens. Tout le risque α = 5 % est dans une seule queue. Comme la table donne p pour les deux queues, on lit la colonne p = 0,10 : t<sub>théo</sub> = 1,725. 1,90 ≥ 1,725 : on rejette H0.<br>3) <b>À retenir</b> : à α égal, le seuil unilatéral est plus bas, donc le test unilatéral détecte plus facilement un écart dans le sens prévu (il est plus puissant), mais il ne peut rien détecter dans l'autre sens. Le choix se fait <b>avant</b> de voir les données, d'après la question biologique, jamais pour obtenir un résultat significatif.",
+  p:[null, "2,086 est le seuil bilatéral. En unilatéral, les 5 % sont concentrés d'un seul côté, donc le seuil est plus bas.", "Les seuils sont inversés : le bilatéral partage α en deux, son seuil est donc le plus élevé.", "2,528 est la colonne p = 0,02 (α = 1 % en unilatéral) : ce n'est pas le bon risque."] }
+];
+
+const stage = document.getElementById("stage");
+const dotsEl = document.getElementById("dots");
+let filter = "all", order = [], idx = 0;
+const ans = new Array(Q.length).fill(null); // index choisi
+const hintShown = new Array(Q.length).fill(false);
+
+function build() {
+  order = Q.map((q, i) => i).filter(i => filter === "all" || Q[i].t === filter);
+  idx = 0;
+  render();
+}
+function counts(list) {
+  let ok = 0, done = 0;
+  list.forEach(i => { if (ans[i] !== null) { done++; if (ans[i] === Q[i].a) ok++; } });
+  return { ok, done };
+}
+function renderDots() {
+  dotsEl.innerHTML = "";
+  order.forEach((qi, k) => {
+    const b = document.createElement("button");
+    b.className = "dot" + (k === idx ? " current" : "") + (ans[qi] === null ? "" : (ans[qi] === Q[qi].a ? " ok" : " ko"));
+    b.textContent = qi + 1;
+    b.setAttribute("aria-label", "Question " + (qi + 1));
+    b.onclick = () => { idx = k; render(); };
+    dotsEl.appendChild(b);
+  });
+  const end = document.createElement("button");
+  end.className = "dot" + (idx === order.length ? " current" : "");
+  end.textContent = "∑"; end.setAttribute("aria-label", "Bilan");
+  end.onclick = () => { idx = order.length; render(); };
+  dotsEl.appendChild(end);
+}
+function render() {
+  const c = counts(order);
+  document.getElementById("pos").textContent = Math.min(idx + 1, order.length);
+  document.getElementById("tot").textContent = order.length;
+  document.getElementById("score").textContent = c.ok;
+  document.getElementById("answered").textContent = c.done;
+  renderDots();
+  if (idx >= order.length) return renderResult();
+  const qi = order[idx], q = Q[qi], a = ans[qi];
+  const letters = "ABCD";
+  let html = `<section class="card" aria-live="polite">
+    <div class="qhead"><span class="qnum">Q${qi + 1}</span><span class="tag ${q.t}">${T[q.t]}</span></div>
+    <p class="prompt">${q.p}</p>
+    <div class="opts">`;
+  q.o.forEach((o, k) => {
+    let cls = "opt";
+    if (a !== null) { if (k === q.a) cls += " right"; else if (k === a) cls += " wrong"; }
+    html += `<button class="${cls}" data-k="${k}" ${a !== null ? "disabled" : ""}><span class="key">${letters[k]}</span><span>${o}</span></button>`;
+  });
+  html += `</div>`;
+  if (a === null) {
+    html += hintShown[qi] ? `<p class="hint">Indice : ${q.h}</p>` : `<div class="hint-row"><button class="link-btn" id="hintBtn">Afficher un indice</button></div>`;
+  } else {
+    const ok = a === q.a;
+    const x = EXP[qi];
+    const wrongs = x.p.map((t, k) => t ? `<li><span class="lk">${letters[k]}</span><span>${t}</span></li>` : "").join("");
+    html += `<div class="feedback ${ok ? "ok" : "ko"}"><b class="verdict">${ok ? "Bonne réponse." : "Pas tout à fait. La bonne réponse est " + letters[q.a] + "."}</b>
+      <div class="fb-sec"><h3>Ce que dit le cours</h3><p>${x.c}</p></div>
+      <div class="fb-sec"><h3>Justification</h3><p>${x.a}</p></div>
+      <div class="fb-sec"><h3>Pourquoi pas les autres réponses</h3><ul class="why">${wrongs}</ul></div>
+      <span class="src">Référence : ${q.s}</span></div>`;
+  }
+  html += `<div class="nav"><button class="btn" id="prev" ${idx === 0 ? "disabled" : ""}>Précédente</button>
+    <button class="btn primary" id="next">${idx === order.length - 1 ? "Voir le bilan" : "Suivante"}</button></div></section>`;
+  stage.innerHTML = html;
+  stage.querySelectorAll(".opt").forEach(b => b.onclick = () => { ans[qi] = +b.dataset.k; render(); });
+  const hb = document.getElementById("hintBtn"); if (hb) hb.onclick = () => { hintShown[qi] = true; render(); };
+  document.getElementById("prev").onclick = () => { idx--; render(); };
+  document.getElementById("next").onclick = () => { idx++; render(); };
+}
+function renderResult() {
+  const c = counts(order);
+  const pct = order.length ? Math.round(100 * c.ok / order.length) : 0;
+  const themes = ["est", "ic", "test"].filter(t => filter === "all" || filter === t);
+  let bars = themes.map(t => {
+    const l = order.filter(i => Q[i].t === t), cc = counts(l);
+    return `<div class="bar-row"><span>${T[t]}</span><div class="bar"><span style="width:${100 * cc.ok / l.length}%;background:var(--t-${t})"></span></div><span class="n">${cc.ok} / ${l.length}</span></div>`;
+  }).join("");
+  const missed = order.filter(i => ans[i] !== Q[i].a);
+  let msg = c.done < order.length ? `Il reste ${order.length - c.done} question(s) sans réponse.` :
+    pct >= 85 ? "Très solide, tu maîtrises ces notions." : pct >= 60 ? "Bonne base. Revois les questions ratées ci-dessous." : "Reprends le formulaire (§ 5, 7, 8) et le CM3-4, puis recommence.";
+  stage.innerHTML = `<section class="card result">
+    <h2>Bilan</h2>
+    <div class="score-big">${c.ok} / ${order.length}</div>
+    <p style="margin:0">${msg}</p>
+    <div class="bars">${bars}</div>
+    ${missed.length ? `<div class="review"><strong>À revoir :</strong>${missed.map(i => `<button class="link-btn" data-q="${i}">Q${i + 1} · ${T[Q[i].t]}${ans[i] === null ? " (sans réponse)" : ""}</button>`).join("")}</div>` : ""}
+    <div class="nav"><button class="btn" id="back">Retour aux questions</button><button class="btn primary" id="restart">Recommencer</button></div>
+  </section>`;
+  stage.querySelectorAll("[data-q]").forEach(b => b.onclick = () => { idx = order.indexOf(+b.dataset.q); render(); });
+  document.getElementById("back").onclick = () => { idx = 0; render(); };
+  document.getElementById("restart").onclick = () => { order.forEach(i => { ans[i] = null; hintShown[i] = false; }); idx = 0; render(); };
+}
+document.querySelectorAll(".chip-btn").forEach(b => b.onclick = () => {
+  filter = b.dataset.f;
+  document.querySelectorAll(".chip-btn").forEach(x => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
+  build();
+});
+build();
+</script>
+</body>
+</html>
